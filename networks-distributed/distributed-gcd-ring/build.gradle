@@ -1,0 +1,105 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+//group = 'org.example'
+//version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // GSON dependency
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'org.apache.activemq:activemq-client:5.15.6'
+    implementation 'org.slf4j:slf4j-simple:2.0.17'
+
+    // JUnit Jupiter API & Engine for Java 21 compatibility
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.1'
+    implementation 'org.apache.activemq:activemq-client:5.18.3' // Use the latest version
+
+    // AssertJ for fluent assertions
+    testImplementation 'org.assertj:assertj-core:3.24.2'
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('chefJar', Jar) {
+    archiveBaseName = 'chef'
+    from sourceSets.main.output
+
+    // Include runtime dependencies (create a fat/uber jar) so external libs like Gson
+    // are available at runtime when running the jar directly.
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    manifest {
+        attributes 'Main-Class': 'chef.Chef'
+    }
+
+    // Avoid duplicate entries when merging jars
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn classes
+}
+
+// Create a jar for Worker
+tasks.register('workerJar', Jar) {
+    archiveBaseName = 'worker'
+    from sourceSets.main.output
+
+    // Make worker jar self-contained as well
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    manifest {
+        attributes 'Main-Class': 'worker.Worker'
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn classes
+}
+
+
+// Create a jar for Botschaft
+tasks.register('botschaftJar', Jar) {
+    archiveBaseName = 'botschaft'
+    from sourceSets.main.output
+
+    // Make botschaft jar self-contained as well
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    manifest {
+        attributes 'Main-Class': 'ambassador.Botschaft'
+    }
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn classes
+}
+
+
+// Modify the build task to create both jars
+build {
+    dependsOn chefJar, workerJar, botschaftJar
+}
+
+
+// Configure the main class for the application plugin
+application {
+    mainClass = 'chef.Chef'
+}
+
+// Configure the existing 'run' task to depend on 'build'
+run {
+    dependsOn build
+}
